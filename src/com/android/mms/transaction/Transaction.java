@@ -221,7 +221,7 @@ public abstract class Transaction extends Observable {
             } else {
                 if (!connMgr.requestRouteToHost(
                         ConnectivityManager.TYPE_MOBILE_MMS, inetAddr)) {
-                    throw new IOException("Cannot establish route to proxy " + inetAddr);
+                    Log.e("MMS", "Cannot establish route to proxy " + proxyAddr + " for " + url);
                 }
             }
         } else {
