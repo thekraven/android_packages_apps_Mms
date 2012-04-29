@@ -40,6 +40,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetEncoder;
+import java.text.Normalizer;
 
 import android.app.ActionBar;
 import android.app.Activity;
@@ -111,6 +114,7 @@ import android.text.style.URLSpan;
 import android.text.util.Linkify;
 import android.util.Log;
 import android.view.ContextMenu;
+import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -124,7 +128,9 @@ import android.view.View.OnKeyListener;
 import android.view.inputmethod.InputMethodManager;
 import android.webkit.MimeTypeMap;
 import android.widget.AdapterView;
+import android.widget.AdapterView.OnItemClickListener;
 import android.widget.EditText;
+import android.widget.GridView;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -162,6 +168,7 @@ import com.android.mms.templates.TemplatesProvider.Template;
 import com.android.mms.transaction.MessagingNotification;
 import com.android.mms.ui.MessageUtils.ResizeImageResultCallback;
 import com.android.mms.ui.RecipientsEditor.RecipientContextMenuInfo;
+import com.android.mms.util.EmojiParser;
 import com.android.mms.util.SendingProgressTokenManager;
 import com.android.mms.util.SmileyParser;
 
@@ -234,6 +241,7 @@ public class ComposeMessageActivity extends Activity
     private static final int MENU_PREFERENCES           = 31;
 
     private static final int MENU_ADD_TEMPLATE          = 32;
+    private static final int MENU_INSERT_EMOJI         = 33;
 
     private static final int DIALOG_TEMPLATE_SELECT     = 1;
     private static final int DIALOG_TEMPLATE_NOT_AVAILABLE = 2;
@@ -298,6 +306,7 @@ public class ComposeMessageActivity extends Activity
     private WorkingMessage mWorkingMessage;         // The message currently being composed.
 
     private AlertDialog mSmileyDialog;
+    private AlertDialog mEmojiDialog;
     private ProgressDialog mProgressDialog;
 
     private boolean mWaitingForSubActivity;
@@ -330,6 +339,73 @@ public class ComposeMessageActivity extends Activity
     //==========================================================
     // Inner classes
     //==========================================================
+
+    // InputFilter which attempts to substitute characters that cannot be
+    // encoded in the limited GSM 03.38 character set. In many cases this will
+    // prevent the keyboards auto-correction feature from inserting characters
+    // that would switch the message from 7-bit GSM encoding (160 char limit)
+    // to 16-bit Unicode encoding (70 char limit).
+
+    private class StripUnicode implements InputFilter {
+
+        private CharsetEncoder gsm =
+            Charset.forName("gsm-03.38-2000").newEncoder();
+
+        private Pattern diacritics =
+            Pattern.compile("\\p{InCombiningDiacriticalMarks}");
+
+        public CharSequence filter(CharSequence source, int start, int end,
+                                   Spanned dest, int dstart, int dend) {
+
+            Boolean unfiltered = true;
+            StringBuilder output = new StringBuilder(end - start);
+
+            for (int i = start; i < end; i++) {
+                char c = source.charAt(i);
+
+                // Character is encodable by GSM, skip filtering
+                if (gsm.canEncode(c)) {
+                    output.append(c);
+                }
+                // Character requires Unicode, try to replace it
+                else {
+                    unfiltered = false;
+                    String s = String.valueOf(c);
+
+                    // Try normalizing the character into Unicode NFKD form and
+                    // stripping out diacritic mark characters.
+                    s = Normalizer.normalize(s, Normalizer.Form.NFKD);
+                    s = diacritics.matcher(s).replaceAll("");
+
+                    // Special case characters that don't get stripped by the
+                    // above technique.
+                    s = s.replace("Œ", "OE");
+                    s = s.replace("œ", "oe");
+                    s = s.replace("Ł", "L");
+                    s = s.replace("ł", "l");
+
+                    output.append(s);
+                }
+            }
+
+            // No changes were attempted, so don't return anything
+            if (unfiltered) {
+                return null;
+            }
+            // Source is a spanned string, so copy the spans from it
+            else if (source instanceof Spanned) {
+                SpannableString spannedoutput = new SpannableString(output);
+                TextUtils.copySpansFrom(
+                    (Spanned) source, start, end, null, spannedoutput, 0);
+
+                return spannedoutput;
+            }
+            // Source is a vanilla charsequence, so return output as-is
+            else {
+                return output;
+            }
+        }
+    }
 
     private void editSlideshow() {
         Uri dataUri = mWorkingMessage.saveAsMms(false);
@@ -922,7 +998,10 @@ public class ComposeMessageActivity extends Activity
 
             menu.setHeaderTitle(R.string.message_options);
 
-            MsgListMenuClickListener l = new MsgListMenuClickListener();
+            // When the listener is called, it is not guaranteed that the cursor
+            // will be pointing to the current message, so we must pass the
+            // correct position to the listener.
+            MsgListMenuClickListener l = new MsgListMenuClickListener(cursor.getPosition());
 
             // It is unclear what would make most sense for copying an MMS message
             // to the clipboard, so we currently do SMS only.
@@ -1121,11 +1200,19 @@ public class ComposeMessageActivity extends Activity
      * Context menu handlers for the message list view.
      */
     private final class MsgListMenuClickListener implements MenuItem.OnMenuItemClickListener {
+        private int mPosition;
+
+        public MsgListMenuClickListener(int position) {
+            mPosition = position;
+        }
+
         public boolean onMenuItemClick(MenuItem item) {
             if (!isCursorValid()) {
                 return false;
             }
             Cursor cursor = mMsgListAdapter.getCursor();
+            cursor.moveToPosition(mPosition);
+
             String type = cursor.getString(COLUMN_MSG_TYPE);
             long msgId = cursor.getLong(COLUMN_ID);
             MessageItem msgItem = getMessageItem(type, msgId, true);
@@ -1754,6 +1841,7 @@ public class ComposeMessageActivity extends Activity
         mGestureSensitivity = prefs
                 .getInt(MessagingPreferenceActivity.GESTURE_SENSITIVITY_VALUE, 3);
         boolean showGesture = prefs.getBoolean(MessagingPreferenceActivity.SHOW_GESTURE, false);
+        boolean stripUnicode = prefs.getBoolean(MessagingPreferenceActivity.STRIP_UNICODE, false);
 
         mLibrary = TemplateGesturesLibrary.getStore(this);
 
@@ -1773,6 +1861,14 @@ public class ComposeMessageActivity extends Activity
 
         // Initialize members for UI elements.
         initResourceRefs();
+
+        LengthFilter lengthFilter = new LengthFilter(MmsConfig.getMaxTextLimit());
+
+        if (stripUnicode) {
+            mTextEditor.setFilters(new InputFilter[] { new StripUnicode(), lengthFilter });
+        } else {
+            mTextEditor.setFilters(new InputFilter[] { lengthFilter });
+        }
 
         mContentResolver = getContentResolver();
         mBackgroundQueryHandler = new BackgroundQueryHandler(mContentResolver);
@@ -2449,6 +2545,12 @@ public class ComposeMessageActivity extends Activity
         if (!mWorkingMessage.hasSlideshow()) {
             menu.add(0, MENU_INSERT_SMILEY, 0, R.string.menu_insert_smiley).setIcon(
                     R.drawable.ic_menu_emoticons);
+            SharedPreferences prefs = PreferenceManager
+                    .getDefaultSharedPreferences((Context) ComposeMessageActivity.this);
+            boolean enableEmojis = prefs.getBoolean(MessagingPreferenceActivity.ENABLE_EMOJIS, false);
+            if (enableEmojis) {
+                menu.add(0, MENU_INSERT_EMOJI, 0, R.string.menu_insert_emoji);
+            }
         }
 
         if (mMsgListAdapter.getCount() > 0) {
@@ -2531,6 +2633,9 @@ public class ComposeMessageActivity extends Activity
                 break;
             case MENU_INSERT_SMILEY:
                 showSmileyDialog();
+                break;
+            case MENU_INSERT_EMOJI:
+                showEmojiDialog();
                 break;
             case MENU_VIEW_CONTACT: {
                 // View the contact for the first (and only) recipient.
@@ -3171,7 +3276,15 @@ public class ComposeMessageActivity extends Activity
 
         // TextView.setTextKeepState() doesn't like null input.
         if (text != null) {
-            mTextEditor.setTextKeepState(text);
+            // Restore the emojis if necessary
+            SharedPreferences prefs = PreferenceManager
+                    .getDefaultSharedPreferences((Context) ComposeMessageActivity.this);
+            boolean enableEmojis = prefs.getBoolean(MessagingPreferenceActivity.ENABLE_EMOJIS, false);
+            if (enableEmojis) {
+                mTextEditor.setTextKeepState(EmojiParser.getInstance().addSmileySpans(text));
+            } else {
+                mTextEditor.setTextKeepState(text);
+            }
         } else {
             mTextEditor.setText("");
         }
@@ -3312,8 +3425,6 @@ public class ComposeMessageActivity extends Activity
         mTextEditor = (EditText) findViewById(R.id.embedded_text_editor);
         mTextEditor.setOnEditorActionListener(this);
         mTextEditor.addTextChangedListener(mTextEditorWatcher);
-        mTextEditor.setFilters(new InputFilter[] {
-                new LengthFilter(MmsConfig.getMaxTextLimit())});
         mTextCounter = (TextView) findViewById(R.id.text_counter);
         mSendButtonMms = (TextView) findViewById(R.id.send_button_mms);
         mSendButtonSms = (ImageButton) findViewById(R.id.send_button_sms);
@@ -3888,6 +3999,41 @@ public class ComposeMessageActivity extends Activity
         }
 
         mSmileyDialog.show();
+    }
+
+    private void showEmojiDialog() {
+        if (mEmojiDialog == null) {
+            int[] icons = EmojiParser.DEFAULT_EMOJI_RES_IDS;
+            final String[] texts = getResources().getStringArray(EmojiParser.DEFAULT_EMOJI_TEXTS);
+
+            GridView gridView = new GridView(this);
+            gridView.setNumColumns(GridView.AUTO_FIT);
+            gridView.setColumnWidth(60);
+            gridView.setGravity(Gravity.CENTER);
+            gridView.setAdapter(new ImageAdapter(this, icons));
+            gridView.setOnItemClickListener(new OnItemClickListener() {
+                public void onItemClick(AdapterView<?> parent, View v, int position, long id) {
+                    CharSequence emoji = EmojiParser.getInstance().addSmileySpans(texts[position]);
+                    if (mSubjectTextEditor != null && mSubjectTextEditor.hasFocus()) {
+                        mSubjectTextEditor.append(emoji);
+                    } else {
+                        mTextEditor.append(emoji);
+                    }
+                    mEmojiDialog.dismiss();
+                }
+            });
+
+            AlertDialog.Builder b = new AlertDialog.Builder(this);
+
+            b.setTitle(getString(R.string.menu_insert_emoji));
+
+            b.setCancelable(true);
+            b.setView(gridView);
+
+            mEmojiDialog = b.create();
+        }
+
+        mEmojiDialog.show();
     }
 
     public void onUpdate(final Contact updated) {
