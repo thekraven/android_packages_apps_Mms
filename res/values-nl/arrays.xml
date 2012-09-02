@@ -17,29 +17,6 @@
  -->
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string-array name="default_smiley_texts">
-        <item msgid="6418813270603201918">":-)"</item>
-        <item msgid="5037069969500587717">":-("</item>
-        <item msgid="1706022067142803863">";-)"</item>
-        <item msgid="1248733150365342132">":-P"</item>
-        <item msgid="817475806953665071">"=-O"</item>
-        <item msgid="2791428909459014455">":-*"</item>
-        <item msgid="3521914049512875091">":O"</item>
-        <item msgid="1245726345240784103">"B-)"</item>
-        <item msgid="6236841507652113784">":-$"</item>
-        <item msgid="9041518876704445176">":-!"</item>
-        <item msgid="5938573563873054892">":-["</item>
-        <item msgid="662834190186827918">"O:-)"</item>
-        <item msgid="8667007781479284572">":-\\"</item>
-        <item msgid="6895634303037073990">":\'("</item>
-        <item msgid="3660685022708121640">":-X"</item>
-        <item msgid="2893940139682468617">":-D"</item>
-        <item msgid="4888792634429693183">"o_O"</item>
-        <item msgid="1585296316137615252">"&lt;3"</item>
-        <item msgid="5254456916552252873">"x-("</item>
-        <item msgid="6605652107194120777">":-/"</item>
-        <item msgid="5729958058423636943">":-I"</item>
-    </string-array>
     <string-array name="default_smiley_names">
         <item msgid="1831934949361041701">"Blij"</item>
         <item msgid="1601611480575517120">"Bedroefd"</item>
@@ -63,6 +40,26 @@
         <item msgid="8479809115158836070">"Grijns"</item>
         <item msgid="638612939305162424">"Pokergezicht"</item>
     </string-array>
+    <string-array name="select_dialog_items">
+        <item msgid="4840183714016984112">"1 seconde"</item>
+        <item msgid="3734955613666864447">"2 seconden"</item>
+        <item msgid="6032232473048379828">"3 seconden"</item>
+        <item msgid="5978471781525927827">"4 seconden"</item>
+        <item msgid="4888440297621208402">"5 seconden"</item>
+        <item msgid="6047246213264166841">"6 seconden"</item>
+        <item msgid="2327501250056533797">"7 seconden"</item>
+        <item msgid="3400770414689795703">"8 seconden"</item>
+        <item msgid="4358760614161107970">"9 seconden"</item>
+        <item msgid="2618179407176906471">"10 seconden"</item>
+        <item msgid="7786079681602275449">"Overig"</item>
+    </string-array>
+    <string-array name="prefEntries_vibrateWhen">
+        <item msgid="2520871831815631409">"Altijd"</item>
+        <item msgid="6069709696037750627">"Alleen in stille modus"</item>
+        <item msgid="7486145357487111435">"Nooit"</item>
+    </string-array>
+
+    <!-- CYANOGENMOD EDITS -->
     <string-array name="pref_templates_gestures_sensitivity_entries">
         <item>1 (minst strikt)</item>
         <item>2</item>
