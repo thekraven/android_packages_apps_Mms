@@ -85,6 +85,10 @@ public class MmsConfig {
     // true and mEnableMultipartSMS is false, the mSmsToMmsTextThreshold will be observed,
     // converting to mms if we reach the required number of segments.
     private static boolean mEnableSplitSMS = false;
+	
+	 // Support to hide sprint VVM's 9016 text mesages.  
+    private static boolean mEnableSprintVVM = false;  
+
 
     private static boolean mEnableSlideDuration = true;
     private static boolean mEnableMMSReadReports = true;        // key: "enableMMSReadReports"
@@ -224,6 +228,10 @@ public class MmsConfig {
         return mEnableSplitSMS;
     }
 
+	public static boolean getSprintVVMEnabled() {  
+        return mEnableSprintVVM;  
+    }  
+
     public static boolean getSlideDurationEnabled() {
         return mEnableSlideDuration;
     }
@@ -335,6 +343,8 @@ public class MmsConfig {
                             mEnableMultipartSMS = "true".equalsIgnoreCase(text);
                         } else if ("enableSplitSMS".equalsIgnoreCase(value)) {
                             mEnableSplitSMS = "true".equalsIgnoreCase(text);
+ 					    } else if ("enableSprintVVM".equalsIgnoreCase(value)) {  
+                            mEnableSprintVVM = "true".equalsIgnoreCase(text);  
                         } else if ("enableSlideDuration".equalsIgnoreCase(value)) {
                             mEnableSlideDuration = "true".equalsIgnoreCase(text);
                         } else if ("enableMMSReadReports".equalsIgnoreCase(value)) {

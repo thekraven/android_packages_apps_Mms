@@ -56,6 +56,10 @@
     <!-- Maximum number of recipients allowed per message. Use a value of -1
          to indicate no limit. -->
     <int name="recipientLimit">-1</int>
+	
+	 <!-- Hide Sprint VVM text messages. -->  
+    <bool name="enableSprintVVM">false</bool>  
+
 
     <!-- Maximum number of SMS message segments in a long text message before converting
          the SMS message to an MMS message. -->
@@ -68,7 +72,7 @@
 
     <!-- If true, the text message will be split every 160 characters.
          If false, the text will never be split before being sent. -->
-    <bool name="enableSplitSMS">false</bool>
+    <bool name="enableSplitSMS">true</bool>
 
     <!-- If true, The mms support slide duration.
          If false, The mms does not support slide duration and we have to
