@@ -58,7 +58,7 @@
     <int name="recipientLimit">-1</int>
 	
 	 <!-- Hide Sprint VVM text messages. -->  
-    <bool name="enableSprintVVM">false</bool>  
+    <bool name="enableSprintVVM">true</bool>  
 
 
     <!-- Maximum number of SMS message segments in a long text message before converting
